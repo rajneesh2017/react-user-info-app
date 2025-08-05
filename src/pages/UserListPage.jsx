@@ -37,6 +37,7 @@ const SearchInput = styled.input`
 const UserListPage = () => {
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortColumn, setSortColumn] = useState({ key: null, direction: "asc" });
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -66,6 +67,27 @@ const UserListPage = () => {
       })
     : []; // Return empty array if users is not an array
 
+  const sortedUsers = Array.isArray(filteredUsers)
+    ? [...filteredUsers].sort((a, b) => {
+        if (!sortColumn.key) return 0;
+
+        const valA = a[sortColumn.key]?.toString().toLowerCase();
+        const valB = b[sortColumn.key]?.toString().toLowerCase();
+
+        if (valA < valB) return sortColumn.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortColumn.direction === "asc" ? 1 : -1;
+        return 0;
+      })
+    : [];
+
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortColumn.key === key && sortColumn.direction === "asc") {
+      direction = "desc";
+    }
+    setSortColumn({ key, direction });
+  };
+
   if (!users.length) return <Container>Loading users...</Container>;
 
   return (
@@ -81,18 +103,16 @@ const UserListPage = () => {
       <Table>
         <thead>
           <tr>
-            <Th>Name</Th>
-            <Th>Email</Th>
-            <Th>Company</Th>
+            <Th onClick={() => handleSort("name")}>Name</Th>
+            <Th onClick={() => handleSort("email")}>Email</Th>
           </tr>
         </thead>
         <tbody>
-          {Array.isArray(filteredUsers) &&
-            filteredUsers.map((user) => (
+          {Array.isArray(sortedUsers) &&
+            sortedUsers.map((user) => (
               <tr key={user.id}>
                 <Td>{user.name}</Td>
                 <Td>{user.email}</Td>
-                <Td>{user.company?.name || "-"}</Td>
               </tr>
             ))}
         </tbody>
