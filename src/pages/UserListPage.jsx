@@ -1,5 +1,8 @@
-import react, { useEffect, useState, useMemo } from "react";
-import fetchUsers from "../api/userApi";
+import react, { useEffect, useState, useMemo, useContext } from "react";
+//import fetchUsers from "../api/userApi";
+import { UserContext } from "../components/UserContext";
+import UserDetailsModal from "../components/UserDetailsModal";
+import AddUserModal from "../components/AddUserModal";
 import styled from "styled-components";
 
 const Container = styled.div`
@@ -34,72 +37,102 @@ const SearchInput = styled.input`
   font-size: 1rem;
 `;
 
+const AddUserButton = styled.button`
+  background-color: #007bff;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover,
+  &:focus {
+    background-color: #0056b3;
+    outline: none;
+  }
+
+  &:active {
+    background-color: #00408d;
+  }
+`;
+
+const Controls = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  gap: 1rem; /* add this */
+`;
+
 const UserListPage = () => {
-  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const { users, loading, error } = useContext(UserContext);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState({ key: null, direction: "asc" });
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const users = await fetchUsers();
-        console.log("Fetched users", users);
-        setUsers(users);
-      } catch (error) {
-        console.error("Error fetching users:", error);
-      }
-    };
+  const openModal = (user) => setSelectedUser(user);
+  const closeModal = () => setSelectedUser(null);
 
-    loadUsers();
-  }, []);
+  //AddUserModal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const handleOpenAddModal = () => setIsAddModalOpen(true);
+  const handleCloseAddModal = () => setIsAddModalOpen(false);
 
-  // Filter users based on search term in name or email (case-insensitive)
-  const filteredUsers = Array.isArray(users)
-    ? users.filter((user) => {
-        if (!user) return false; // skip null/undefined users
-        const name = user.name || "";
-        const email = user.email || "";
-        const term = (searchTerm || "").toLowerCase();
-        return (
-          name.toLowerCase().includes(term) ||
-          email.toLowerCase().includes(term)
-        );
-      })
-    : []; // Return empty array if users is not an array
+  const filteredUsers = useMemo(() => {
+    if (!Array.isArray(users)) return [];
+    const term = (searchTerm || "").toLowerCase();
+    return users.filter(
+      (user) =>
+        user.name.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term)
+    );
+  }, [users, searchTerm]);
 
-  const sortedUsers = Array.isArray(filteredUsers)
-    ? [...filteredUsers].sort((a, b) => {
-        if (!sortColumn.key) return 0;
-
-        const valA = a[sortColumn.key]?.toString().toLowerCase();
-        const valB = b[sortColumn.key]?.toString().toLowerCase();
-
-        if (valA < valB) return sortColumn.direction === "asc" ? -1 : 1;
-        if (valA > valB) return sortColumn.direction === "asc" ? 1 : -1;
-        return 0;
-      })
-    : [];
+  const sortedUsers = useMemo(() => {
+    const sorted = [...filteredUsers];
+    sorted.sort((a, b) => {
+      const aKey = a[sortColumn.key] ? a[sortColumn.key].toLowerCase() : "";
+      const bKey = b[sortColumn.key] ? b[sortColumn.key].toLowerCase() : "";
+      if (aKey < bKey) return sortColumn.direction === "ascending" ? -1 : 1;
+      if (aKey > bKey) return sortColumn.direction === "ascending" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }, [filteredUsers, sortColumn]);
 
   const handleSort = (key) => {
-    let direction = "asc";
-    if (sortColumn.key === key && sortColumn.direction === "asc") {
-      direction = "desc";
-    }
-    setSortColumn({ key, direction });
+    setSortColumn((prev) => {
+      if (prev.key === key) {
+        // Toggle direction
+        return {
+          key,
+          direction:
+            prev.direction === "ascending" ? "descending" : "ascending",
+        };
+      }
+      return { key, direction: "ascending" };
+    });
   };
 
-  if (!users.length) return <Container>Loading users...</Container>;
+  if (loading) return <Container>Loading users...</Container>;
+  if (error) return <Container>Error loading users: {error}</Container>;
 
   return (
     <Container>
       <Title>User List</Title>
-      <SearchInput
-        type="text"
-        placeholder="Search by name or Email"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        aria-label="Search users by name or email"
-      />
+      <Controls>
+        <SearchInput
+          type="text"
+          placeholder="Search by name or Email"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          aria-label="Search users by name or email"
+        />
+        <AddUserButton onClick={handleOpenAddModal}>Add User</AddUserButton>
+      </Controls>
       <Table>
         <thead>
           <tr>
@@ -110,13 +143,19 @@ const UserListPage = () => {
         <tbody>
           {Array.isArray(sortedUsers) &&
             sortedUsers.map((user) => (
-              <tr key={user.id}>
+              <tr
+                key={user.id}
+                onClick={() => openModal(user)}
+                style={{ cursor: "pointer" }}
+              >
                 <Td>{user.name}</Td>
                 <Td>{user.email}</Td>
               </tr>
             ))}
         </tbody>
       </Table>
+      <UserDetailsModal user={selectedUser} onClose={closeModal} />
+      {isAddModalOpen && <AddUserModal onClose={handleCloseAddModal} />}
     </Container>
   );
 };

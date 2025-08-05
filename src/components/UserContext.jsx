@@ -1,9 +1,9 @@
 import React, { createContext, useState, useEffect } from "react";
-import { fetchUsers } from "../api/userApi";
+import fetchUsers from "../api/userApi";
 
 export const UserContext = createContext();
 
-export const UserProvider = ({ children }) => {
+export const UserContextProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,8 +25,14 @@ export const UserProvider = ({ children }) => {
     loadUsers();
   }, []);
 
+  const addUser = (user) => {
+    // Add new user with unique id
+    const newUser = { ...user, id: users.length + 1 };
+    setUsers([...users, newUser]);
+  };
+
   return (
-    <UserContext.Provider value={{ users, setUsers, loading, error }}>
+    <UserContext.Provider value={{ users, setUsers, addUser, loading, error }}>
       {children}
     </UserContext.Provider>
   );
